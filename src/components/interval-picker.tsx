@@ -50,7 +50,7 @@ export const IntervalPicker: FC<IntervalPickerProps> = (props: IntervalPickerPro
         renderInput={(params) => <TextField {...params} />}
       />
       <Select onChange={selectHandler} value={"Select date"}>
-        {opts.map((option: Option) => <MenuItem value={option.from}>{option.label}</MenuItem>)}
+        {opts.map((option: Option) => <MenuItem key={option.from} value={option.from}>{option.label}</MenuItem>)}
       </Select>
     </LocalizationProvider>
   );

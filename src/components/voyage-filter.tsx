@@ -39,7 +39,7 @@ export class VoyageFilter extends React.Component<VoyageFilterProps, VoyageFilte
         {players.length > 1 &&
           <Select value={tr`Player`} onChange={({ target: { value }}) => this._onChange(value)}>
             <MenuItem value={undefined}>{tr`All`}</MenuItem>
-            {players.map((player:PlayerEntry) => <MenuItem value={player.dbid}>{player.currentPlayerName}</MenuItem>)}
+            {players.map((player:PlayerEntry) => <MenuItem key={player.dbid} value={player.dbid}>{player.currentPlayerName}</MenuItem>)}
           </Select>
         }
         <DateRangePicker onChange={newValue => this._onChange(undefined, newValue)} />

@@ -109,8 +109,8 @@ export const SortableTable = <T,>(props: SortableTableProps<T>): JSX.Element => 
         {rows
           .slice(offset, offset+pageSize)
           .sort((row1, row2) => orderBy.sorter(row1[orderBy.id], row2[orderBy.id]) * (sortAscending ? 1 : -1))
-          .map(row =>
-            <TableRow>
+          .map((row, i) =>
+            <TableRow key={i}>
               {columns.map(header =>
                 <TableCell key={header.id} align={header.numeric ? 'right' : 'left'}>
                   {header.formatter(row[header.id])}

@@ -283,7 +283,7 @@ export const NavBar = (props: NavBarProps) => {
           onChange={event => changeLocale(event.target.value as string)} 
           style={{margin: '0.5cm'}}
         >
-          {languages.map(lang => <MenuItem value={lang.code}>{lang.name}</MenuItem>)}
+          {languages.map(lang => <MenuItem key={lang.code} value={lang.code}>{lang.name}</MenuItem>)}
         </Select>
       </Stack>
       <br style={{clear: 'both'}} />
