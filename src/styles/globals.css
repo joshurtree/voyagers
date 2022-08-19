@@ -8,6 +8,10 @@ body {
     Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
 }
 
+body:lang(kl) {
+  font-family: Klingon
+}
+
 a {
   color: 'lightblue';
   text-decoration: none;
@@ -30,4 +34,9 @@ a:hover {
 @font-face {
   font-family: 'Star Trek';
   src: local('startrek'), url(../resources/star_cine.ttf) format('truetype');
+}
+
+@font-face {
+  font-family: 'Klingon';
+  src: local('klingon'), url(../resources/klingon\ font.ttf) format('truetype');
 }

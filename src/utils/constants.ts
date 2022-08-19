@@ -4,9 +4,18 @@ export const SKILLS = {
   command_skill: 'Command',
   diplomacy_skill: 'Diplomacy',
   engineering_skill: 'Engineering',
-  medical_skill: 'Medicine',
+  medicine_skill: 'Medicine',
   science_skill: 'Science',
   security_skill: 'Security'
+};
+
+export const SKILL_ABBRS = {
+  command_skill: 'CMD',
+  diplomacy_skill: 'DIP',
+  engineering_skill: 'ENG',
+  medicine_skill: 'MED',
+  science_skill: 'SCI',
+  security_skill: 'SEC'
 };
 
 export enum VoyageState {
@@ -67,14 +76,7 @@ export const VOYAGE_SEATS = [
   }
 ];
 
-export const VOYAGE_TRAITS = [
-  'Federation',
-  'Starfleet',
-  'Human',
-  'Vulcan',
+export const languages = [
+  { code: 'en', name: 'English' },
+  { code: 'kl', name: 'Klingon' }
 ];
-
-export const TRANSLATIONS = [
-  'en',
-  'kl'
-]

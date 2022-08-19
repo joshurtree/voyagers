@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { ChangeEvent } from 'react';
 import {
+  Autocomplete,
   Button,
   Breadcrumbs,
   Dialog,
@@ -11,19 +12,24 @@ import {
   Input,
   InputLabel,
   Link,
-  Menu,
-  MenuItem,
   Popover,
-  Stack
+  Select,
+  Stack,
+  TextField,
+  MenuItem
 } from '@mui/material';
 
 import tr from '../utils/translate';
-//import { } from '../utils/constants';
-import { ImportStatus, ImportTaskState, LocalVoyageLog } from '../utils/voyagelog';
+import { languages } from '../utils/constants';
+import { ImportTaskState, LocalVoyageLog } from '../utils/voyagelog';
+import { useTheme } from '@mui/material/styles';
+import ConfirmationDialog from './confirm-dialog';
+import LocalVoyageLogContext from './voyage-context';
 
 type NavBarPopupProps = {
+  id?: string;
   title: string;
-  children: JSX.Element[];
+  children: JSX.Element;
 };
 
 function NavBarPopup(props: NavBarPopupProps) {
@@ -74,148 +80,229 @@ function NavBarPopup(props: NavBarPopupProps) {
 }
 
 type VoyageStatusDialogProps = {
-  status: VoyageLog.ImportStatus;
+  open: boolean;
+  status: ImportTaskState[];
   onClose: () => void;
 };
 
-function VoyageStatusDialog(props: ErrorDialogProps) {
-  const {status, onClose, open} = props;
+function VoyageStatusDialog(props: VoyageStatusDialogProps) {
+  const messages = {
+    parsedJson: [tr`Parsed player data.`, tr`Failed to parse player data`],
+    voyageFound: [tr`Found existing voyage.`, tr`No voyage found`],
+    voyageComplete: [tr`Voyage has been recalled.`, tr`Recall the voyage before logging it`],
+    voyageUnique: [tr`You have not yet logged the voyage.`, tr`You have already logged the voyage`],
+    voyageNotExtended: [tr`The voyage has not been extended.`, tr`The voyage has been extended`],
+    voyageSaved: [tr`The voyage has been stored locally`, tr`Failed to store voyage`],
+    synced: [tr`The voyage has been uploaded to voyagers.org.`, tr`The voyage has not been uploaded to` + ' voyagers.app']
+  }
+  const {open, status, onClose} = props;
   const [removed, setRemoved] = React.useState(false);
 
-  const statusMsg = (state: ImportTaskState, successMessage: string, failureMessage: string) => {
-    const msg = state == ImportTaskState.succeeded
-      ? <><Icon sx={{color: 'green', verticalAlign: 'bottom'}}>thumb_up</Icon>&emsp;{successMessage}</>
-      : <><Icon sx={{color: 'red', verticalAlign: 'bottom'}}>thumb_down</Icon>&emsp;{failureMessage}</>;
+  const statusMsg = (state: ImportTaskState) => 
+     state.completed
+      ? <p><Icon sx={{color: 'green', verticalAlign: 'bottom'}}>thumb_up</Icon>&emsp;{messages[state.name][0]}</p>
+      : <p><Icon sx={{color: 'red', verticalAlign: 'bottom'}}>thumb_down</Icon>&emsp;{messages[state.name][1]}</p>;
 
-    return (state != ImportTaskState.notDone ? <p>{msg}</p> : <></>);
-  };
   const removeEntry = () => {
     this._voyageLog.removeLastVoyage();
     setRemoved(true)
   };
 
   return (
-    <Dialog onClose={onClose} open={true}>
+    <Dialog onClose={onClose} open={open}>
       <DialogContent>
-        {statusMsg(status.parsedJson, tr`Parsed player data.`, tr`Failed to parse player data.`)}
-        {statusMsg(status.voyageFound, tr`Found existing voyage.`, tr`No voyage found.`)}
-        {statusMsg(status.voyageCompleted, tr`Voyage has been recalled.`, tr` Recall the voyage before logging it.`)}
-        {statusMsg(status.voyageUnique, tr`You have not yet logged the voyage.`, tr`You have already logged the voyage.`)}
-        {statusMsg(status.voyageNotExtended, tr`The voyage has not been extended.`, tr`The voyage has been extended`)}
-        {statusMsg(status.stored, tr`The voyage has been stored locally`, tr`Failed to store voyage`)}
-        {statusMsg(status.synced, tr`The voyage has been uploaded to voyagers.org.`, tr`The voyage has not been uploaded to voyagers.org.`)}
-        {status.stored == ImportTaskState.succeeded &&
-          <DialogActions>
+        {status.map(state => statusMsg(state))}
+        <DialogActions>
+          {status.find(value => value.name == 'voyageSaved')?.completed && 
             <Button
               disabled={removed}
               onClick={() => removeEntry()}
             >
               {removed ? tr`Removed` : tr`Remove`}
             </Button>
-          </DialogActions>
-        }
+          }
+          <Button onClick={onClose}>
+            {tr`Ok`}
+          </Button>
+        </DialogActions>
       </DialogContent>
     </Dialog>
   );
 }
 
 type LinkProps = {
-  id: string;
+  key: string;
   title: string;
   url?: string;
+  call?: () => void;
+  children?: LinkProps[];
 };
 
-type NavBarProps = {
+interface NavBarProps {
+  onLocaleChange: (value: string) => void
+};
+
+type NavBarState = { 
+  dataClearConfirm: boolean;
   loaded: boolean;
-  voyageImportStatus?: ImportStatus;
+  voyageImportStatus?: ImportTaskState[];
+  locale: Locale;
 };
 
-export default class NavBar extends React.Component<NavBarProps> {
-  constructor(props) {
-    super(props);
+interface FileButtonProps {
+  id: string;
+  children: JSX.Element[];
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+};
 
-    this.state = {
-      loaded: false,
-      voyageImportStatus: null
-    };
+const FileButton = (props: FileButtonProps) => (
+  <label htmlFor={props.id}>
+    <input
+      id={props.id}
+      name={props.id}
+      style={{ display: 'none' }}
+      type='file'
+      onChange={props.onChange} 
+    />
+    <Button component='span'>
+      {props.children}
+    </Button>  
+  </label>
+);
 
+export const NavBar = (props: NavBarProps) => {
+  const voyageLog = React.useContext(LocalVoyageLogContext).voyageLog;
+  let exportBlobURL: string = null;
+  
+  const [ dataClearConfirm, setDataClearConfirm ] = React.useState(false);      
+  const [ voyageImportStatus, setVoyageImportStatus ] = React.useState(null);
+  const [ locale, setLocale ] = React.useState(languages.find(lang => lang.code == 'en'));
+
+  const logVoyage = (data : string) => {
+    voyageLog.importVoyage(data)
+      .then((voyageImportStatus: ImportTaskState[]) => setVoyageImportStatus(voyageImportStatus))
+      .catch((voyageImportStatus: ImportTaskState[]) => setVoyageImportStatus(voyageImportStatus));
   }
 
-  componentDidMount() {
-    this._voyageLog = new LocalVoyageLog();
-    this._voyageLog.then(() => this.setState({loaded: true}));
-  }
-
-  _logVoyageFromClipboard(event) {
+  const logVoyageFromClipboard = (event) => {
     event.preventDefault();
-    this._logVoyage((event.clipboardData || window.clipboardData).getData('text'));
+    logVoyage((event.clipboardData || window.clipboardData).getData('text'));
   }
 
-  _logVoyageFromFile({target: {files: [file]}}) {
+  const logVoyageFromFile = (e : ChangeEvent<HTMLInputElement>) => {
+    const file: File = e.target.files[0];
     const fReader = new FileReader();
     const isWebArchive = file.name.toLowerCase().endsWith('.webarchive');
-
+  
 		fReader.onload = (e) => {
 			const data = e.target.result.toString();
-			this._logVoyage(isWebArchive ? data.substring(data.indexOf('>{') + 1, data.lastIndexOf('}}') + 2) : data);
+      logVoyage(isWebArchive ? data.substring(data.indexOf('>{') + 1, data.lastIndexOf('}}') + 2) : data);
 		};
+
 		fReader.readAsText(file);
   }
 
-  _logVoyage(data : string) {
-    this._voyageLog.importVoyage(data)
-        .then((voyageImportStatus) => this.setState({ voyageImportStatus }))
-        .catch((voyageImportStatus) => this.setState({ voyageImportStatus }));
+  const importData = (e: ChangeEvent<HTMLInputElement>) => {
+    const fReader = new FileReader();
+    fReader.onload = ev => voyageLog.importData(ev.target.result.toString());
+    fReader.readAsText(e.target.files[0]);
   }
 
-  render() {
-    const { loaded, voyageImportStatus } = this.state;
+  const exportData = () => {
+    const dataURL = URL.createObjectURL(voyageLog.exportData());
+    const pom = document.createElement('a');
+    pom.setAttribute('href', dataURL);
+    pom.setAttribute('download', 'voyagers.json');
+    pom.click();
 
-    const links : LinkProps[] = [
-      {id: 'home', title: 'Home', url: '/'},
-      {id: 'greatest', title: tr`Greatest voyagers`, children: [
-        {id: 'greatest-count', title: tr`By voyage count`, url: '/voyagers?by=count'},
-        {id: 'greatest-duration', title: tr`By total duration`, url: '/voyagers?by=duration'},
-        {id: 'greatest-trait', title: tr`By trait matches`, url: '/voyagers?by=traits'}
-      ]},
-      //{id, 'hall-of-honour', title: tr`Voyage hall of honour`, url: '/Voyages'},
-    ];
+    URL.revokeObjectURL(exportBlobURL);
+  }
 
-    const createNavBarElement = (link: LinkProps) => {
-      if (link.url)
-        return (<Button href={link.url}>{link.title}</Button>);
-      else
-        return (
-          <NavBarPopup title={link.title}>
+  const clearData = () => {
+    voyageLog.clear()
+  }
+
+  const links : LinkProps[] = [
+    {key: 'home', title: 'Home', url: '/'},
+    {key: 'greatest', title: tr`Greatest voyagers`, url: '/voyagers-list'},
+    {key: 'voyages', title: 'View voyages', url: '/voyage-list'}
+  ];
+
+  const createNavBarElement = (link: LinkProps) => {
+    if (link.url || link.call) {
+      const props = link.url ? {href: link.url} : {onclick: link.call};
+      return (<Button {...props}>{link.title}</Button>);
+    } else {
+      return (
+        <NavBarPopup title={link.title}>
+          <Stack>
+            {link.children.map(createNavBarElement)}
+          </Stack>
+        </NavBarPopup>
+      );
+    }
+  };
+
+  const changeLocale = (value: string) => {
+    setLocale(languages.find(lang => lang.code == value));
+    props.onLocaleChange(value);
+  };
+
+  const handleConfirmClose = (confirmed: boolean) => {
+    confirmed && clearData();
+    setDataClearConfirm(false);
+  };
+
+  return (
+    <>
+      <Stack direction='row' style={{float:'left'}}>
+        {links.map(createNavBarElement)}
+        {voyageLog?.isLoaded() &&
+          <NavBarPopup id='data' title={tr`Data`}>
             <Stack>
-              {link.children.map(createNavBarElement)}
+              <FileButton id='import' onChange={importData}>{tr`Import...`}</FileButton>
+              <Button id='export' onClick={exportData}>{tr`Export`}</Button>
+              <Button id='clear' onClick={() => setDataClearConfirm(true)}>{tr`Clear...`}</Button>
             </Stack>
           </NavBarPopup>
-        );
-    };
-
-    return (
-      <>
-        <Stack direction='row'>
-          {links.map(createNavBarElement)}
-          {loaded &&
-            <NavBarPopup id='log-voyage' title={tr`Log voyage`}>
-              <Stack margin="5mm">
-                <p>{tr`Paste the contents of your `}<a href="https://stt.disruptorbeam.com/player">{tr`player file`}</a>.</p>
-                <textarea autoFocus onPaste={(e) => this._logVoyageFromClipboard(e)} />
-                <div style={{textAlign: 'center'}}>{tr`or`}</div>
-                <InputLabel for="file-input">{tr`Import player file`}</InputLabel><Input id="file-input" type="file" onChange={(e) => this._logVoyageFromFile(e)} />
-              </Stack>
-            </NavBarPopup>
-          }
-        </Stack>
-        {voyageImportStatus &&
-          <VoyageStatusDialog
-            status={voyageImportStatus}
-            onClose={() => this.setState({voyageImportStatus: null})}
-          />
         }
-      </>
-    );
-  }
+        {voyageLog?.isLoaded() &&
+          <NavBarPopup id='log-voyage' title={tr`Log voyage`}>
+            <Stack margin="5mm">
+              <p>{tr`Paste the contents of your `}<a href="https://stt.disruptorbeam.com/player">{tr`player file`}</a>.</p>
+              <textarea autoFocus onPaste={(e) => logVoyageFromClipboard(e)} />
+              <div style={{textAlign: 'center'}}>{tr`or`}</div>
+              <FileButton id='voyageImportFile' onChange={(e) => logVoyageFromFile(e)}>{tr`Import player file`}</FileButton>
+            </Stack>
+          </NavBarPopup>
+        }
+      </Stack>
+      <Stack direction='row' style={{float: 'right'}}>
+        <Select 
+          value={locale.code}
+          onChange={event => changeLocale(event.target.value as string)} 
+          style={{margin: '0.5cm'}}
+        >
+          {languages.map(lang => <MenuItem value={lang.code}>{lang.name}</MenuItem>)}
+        </Select>
+      </Stack>
+      <br style={{clear: 'both'}} />
+      {voyageImportStatus &&
+        <VoyageStatusDialog
+          open={voyageImportStatus != null}
+          status={voyageImportStatus}
+          onClose={() => setVoyageImportStatus(null)}
+        />
+      }
+      <ConfirmationDialog 
+        id='dataClearConfirm'
+        open={dataClearConfirm} 
+        onClose={handleConfirmClose} 
+        labels={ConfirmationDialog.YESNO} 
+        title={tr`Are you sure?`}
+      />
+    </>
+  );
 }
+
+export default NavBar;

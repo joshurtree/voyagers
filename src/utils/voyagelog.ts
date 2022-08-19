@@ -1,9 +1,20 @@
-import { tr } from './translate';
+import { Data } from 'dataclass';
+import { createContext } from 'react';
 import localForage from 'localforage';
 import { VoyageState, VOYAGE_SEATS } from './constants';
 import { getEstimate } from './voyage-emulator';
+import { Password, SearchTwoTone, Upload } from '@mui/icons-material';
+import { resolve } from 'path';
+import { ArrayQuery, OODBQuery } from '../utils/QueryAdapter';
+import { duration } from '@mui/material';
 
 const VOYAGER_LOG_KEY = 'voyageLog';
+const SAVE_PATH_KEY = 'savePath';
+const UPLOAD_KEY = 'upload';
+const EXPORT_VERSION = {
+  major: 1,
+  minor: 0
+};
 
 type Skill = {
   core: number;
@@ -11,166 +22,273 @@ type Skill = {
   range_max: number;
 };
 
-type Skills = {
-  command_skill: Skill;
-  diplomacy_skill: Skill;
-  engineering_skill: Skill;
-  medicine_skill: Skill;
-  science_skill: Skill;
-  security_skill: Skill;
+const NO_SKILL: Skill = { core: 0, range_min: 0, range_max: 0};
+
+export type Skills = {
+  command_skill?: Skill;
+  diplomacy_skill?: Skill;
+  engineering_skill?: Skill;
+  medicine_skill?: Skill;
+  science_skill?: Skill;
+  security_skill?: Skill;
 };
 
-type Voyager = {
+export class VoyagerRecord extends Data {
+  seatid: number;
+  voyagerid: number;
   symbol: string;
   skills: Skills;
   rarity: number;
+  trait: string;
+  traitMatch: boolean;
 };
 
-type VoyageSeat = {
+export class VoyagerRecordEx extends VoyagerRecord {
+  duration: number;
+};
+
+export type Item = {
   id: number;
-  voyager: Voyager;
-  traitMatch: boolean;
+  quantity: number;
+};
+
+type RawVoyage = {
+  id: number;
+  ship_trait: string;
+  skills: { primary_skill: string; secondary_skill: string; }
+  state: string;
+  max_hp: number;
+  hp: number;
+  log_index: number;
+  pending_rewards: Item[];
+  created_at: string;
+  recalled_at?: string;
+  voyage_duration: number;
+  skill_aggregates: Skills;
+  seconds_from_last_dilemma: number;
+  ship_id: number;
+  crew_slots: any[];
 };
 
 export type VoyageEntry = {
   id: number;
-  date_started: Date;
+  dateStarted: Date;
   dbid: number;
   duration: number;
   fleet: string;
   startAm: number;
   finalAm: number;
-  shipid: number;
+  shipId: number;
+  shipTrait: string;
   primary_skill: string;
   secondary_skill: string;
-  seats: VoyageSeat[];
+  seats: VoyagerRecord[];
   aggregates: Skills;
+  loot: Item[];
 };
+
+export type VoyageFilter = (value: VoyageEntry) => boolean;
+export type VoyagerFilter = (value: VoyagerRecord) => boolean;
 
 export type PlayerEntry = {
+  id: number;
   dbid: number;
   currentPlayerName: string;
-  voyagersUsed: string[];
+ };
+
+export class AllData {
+  players: PlayerEntry[] = [];
+  voyages: VoyageEntry[] = [];
+};
+ 
+
+export class ImportTaskState extends Data {
+  name: string;
+  completed: boolean = false;
 };
 
-export type AllData = {
-  players: PlayerEntry[];
-  voyages: VoyageEntry[];
-};
+export type ModifiedCallback = () => void;
+const ensureUnique = <T>(testValue: string) => (all : T[], newValue : T) => 
+  all.find(existingValue => newValue[testValue] == existingValue[testValue]) ? all : all.concat([newValue]);
 
-export enum ImportTaskState {
-  notDone,
-  failed,
-  succeeded
-};
+const voyageStore = new class {
+  players: PlayerEntry[] = [];
+  voyages: VoyageEntry[] = [];
+  loaded: boolean = false;
+  modCallbacks: ModifiedCallback[] = [];
 
-export class ImportStatus {
-  parsedJson: ImportTaskState = ImportTaskState.notDone;
-  voyageFound: ImportTaskState = ImportTaskState.notDone;
-  voyageCompleted: ImportTaskState = ImportTaskState.notDone;
-  voyageUnique: ImportTaskState = ImportTaskState.notDone;
-  voyageNotExtended: ImportTaskState = ImportTaskState.notDone;
-  authenticated: ImportTaskState = ImportTaskState.notDone;
-  stored: ImportTaskState = ImportTaskState.notDone;
-  synced: ImportTaskState = ImportTaskState.notDone;
-};
-
-export class LocalVoyageLog {
-  _voyageLog: VoyageEntry[];
-  _playerLog: PlayerEntry[];
-  _loadPromise: any;
-  _sync: boolean = false;
-
-  constructor(sync: boolean = false) {
-    this._loadPromise = localForage.getItem(VOYAGER_LOG_KEY)
-      .then((log? : AllData) => {
-        if (log) {
-          this._voyageLog = log.voyages ?? [];
-          this._playerLog = log.players ?? [];
-        } else {
-          this._voyageLog = [];
-          this._playerLog = [];
-        }
+  constructor() {
+    new Promise((resolve, _) => {
+      localForage.getItem<AllData>(VOYAGER_LOG_KEY).then((data) => {
+        this.players = data.players.reduce(ensureUnique<PlayerEntry>("dbid"), []) ?? [];
+        this.voyages = data.voyages.reduce(ensureUnique<VoyageEntry>("id"), []) ?? [];
+        resolve(data);
+      }).then(() => {
+        this.loaded = true;
       });
-    this._sync = sync;
+    });
   }
 
-  importVoyage(json: string, resolve: () => void, reject: (reason: ImportStatus) => void) {
+  addModifyCallback(callback) {
+    this.modCallbacks.push(callback);
+  }
+  
+  addVoyage(voyage: VoyageEntry) {
+    this.voyages.push(voyage);
+  }
+  
+  addPlayer(player: PlayerEntry) {
+    if (this.players.find(entry => entry.dbid == player.dbid) == undefined)
+      this.players.push(player);
+
+  } 
+ 
+  importData(data: string) {
+    const { players, voyages } = JSON.parse(data);
+    this.players.concat(players);
+    this.voyages.concat(voyages);
+    this.store();
+  }
+
+  exportData() : Blob {
+    const { players, voyages } = this;
+    return new Blob([JSON.stringify({ version: EXPORT_VERSION, players, voyages })], { type: 'text/json' });
+  }
+
+  clear(playerFilter: number[]) {
+    this.voyages = this.voyages.filter(voyage => playerFilter.includes(voyage.dbid));
+    this.players = this.players.filter(player => playerFilter.includes(player.dbid));
+    this.store();
+  }
+
+  store() {
+    localForage.setItem(VOYAGER_LOG_KEY, {
+      voyages: this.voyages,
+      players: this.players
+    });
+
+    this.modCallbacks.forEach(callback => callback());
+
+    return false; // No backend yet
+  }
+}();
+
+
+export class LocalVoyageLog {  
+  constructor(modifyCallback: ModifiedCallback = undefined) {
+    if (modifyCallback == undefined)
+      voyageStore.addModifyCallback(modifyCallback);
+  }
+
+  isLoaded() {
+    return voyageStore.loaded;
+  }
+
+  importVoyage(json: string) {
     return new Promise((resolve, reject) => {
-      const status: ImportStatus = new ImportStatus();
-      const taskResult = (succeeded) => succeeded ? ImportTaskState.succeeded : ImportTaskState.failed;
+      let status: ImportTaskState[] = [];
+      const addState = (name: string, completed: boolean = false) => { status.push(ImportTaskState.create({ name, completed })); return completed; };
+      const updateState = (name, completed) => status = status.map((value) => value.name == name ? ImportTaskState.create({ name, completed }) : value);
 
       try {
-        status.parsedJson = ImportTaskState.failed;
+        addState('parsedJson');
         const playerData = JSON.parse(json);
-        status.parsedJson = ImportTaskState.succeeded;
-        const { dbid, fleet, character } = playerData.player;
+        updateState('parsedJson', true);
+
+        const { id, dbid, fleet, character } = playerData.player;
         const voyage = character.voyage[0];
-        status.voyageFound = taskResult(voyage != undefined);
 
-        if (status.voyageFound != ImportTaskState.succeeded)
+        if (!addState('voyageFound', voyage != undefined) ||
+          !addState('voyageComplete', voyage.state != VoyageState.started) ||
+          !addState('voyageUnique', voyageStore.voyages.find((entry) => entry.id == voyage.id) == undefined))
           return reject(status);
-
-        status.voyageCompleted = taskResult(voyage.state != VoyageState.started);
-        status.voyageUnique = taskResult(this._voyageLog.filter((entry) => entry.id == voyage.id).length == 0);
 
         const entry = this._voyageToEntry(dbid, fleet.slabel, voyage);
-        status.voyageNotExtended = taskResult(this._checkVoyageLength(entry));
-
-        if (status.voyageCompleted != ImportTaskState.succeeded || status.voyageUnique != ImportTaskState.succeeded)
+        if (!addState('voyageNotExtended', this._checkVoyageLength(entry)))
           return reject(status);
 
-        //if (this._authenticateVoyage(playerData, voyage))
-        //  status.authenticated = true;
-
-        this._voyageLog.push(entry);
-        this._playerLog[dbid] = character.display_name;
-
-        status.synced = taskResult(this.doSync());
-        status.stored = ImportTaskState.succeeded;
+        console.log(entry);
+        voyageStore.addVoyage(entry);
+        voyageStore.addPlayer({ id, dbid, currentPlayerName: character.display_name });
+        voyageStore.store();
+        addState('voyageSaved', true);
 
         resolve(status);
       } catch (err) {
+        console.log(err);
         reject(status);
       }
     });
   }
 
-  then(callback) {
-    return this._loadPromise.then(callback);
+  importData(data: string) {
+    voyageStore.importData(data);
+  }
+
+  exportData() : Blob {
+    return voyageStore.exportData();
+  }
+
+  clear(playerFilter: number[] = [] ) {
+    voyageStore.clear(playerFilter);
   }
 
   removeLastVoyage() {
-    this._voyageLog.pop();
-    this.doSync();
+    voyageStore.voyages.pop();
+    voyageStore.store();
   }
 
-  groupBySkillPair() {
-
+  voyages() : OODBQuery<VoyageEntry> {
+    return new ArrayQuery(voyageStore.voyages);
   }
 
-  _voyageToEntry(dbid: number, fleet: string, voyage: object) : VoyageEntry {
-    const { id, created_at, max_hp, hp, log_index, shipid, seats, skill_aggregates, skills, crew_slots } = voyage;
+  players() : OODBQuery<PlayerEntry> {
+    return new ArrayQuery(voyageStore.players);
+  }
+
+  voyagerRecords() : OODBQuery<VoyagerRecordEx> {
+    return new ArrayQuery(voyageStore.voyages.reduce(
+      (voyagers, voyage) => voyagers.concat(voyage.seats.map(seat => VoyagerRecordEx.create({...seat, duration: voyage.duration}))), []
+    ));
+  }
+
+  _voyageToEntry(dbid: number, fleet: string, voyage: RawVoyage): VoyageEntry {
+    const { 
+      id, 
+      created_at, 
+      max_hp, 
+      hp, 
+      log_index, 
+      ship_id, 
+      ship_trait, 
+      pending_rewards, 
+      skill_aggregates, 
+      skills, 
+      crew_slots 
+    } = voyage;
+
     const { primary_skill, secondary_skill } = skills;
     return {
       id,
       dateStarted: new Date(created_at),
       dbid,
       fleet,
-      duration: log_index*20,
+      duration: log_index * 20,
       startAm: max_hp,
       finalAm: hp,
-      shipid,
+      shipId: ship_id,
+      shipTrait: ship_trait,
+      loot: pending_rewards,
       primary_skill,
       secondary_skill,
-      seats: crew_slots.map(slot => ({
-        id: VOYAGE_SEATS.find(seat => seat.symbol == slot.symbol),
-        crew: {
+      seats: crew_slots.map(slot => VoyagerRecord.create({
+          seatid: slot.id,
+          voyagerid: slot.crew.id,
           symbol: slot.crew.symbol,
           skills: slot.crew.skills,
-          rarity: slot.crew.rarity
-        },
-        traitMatch: slot.crew.traits.includes(slot.trait)
+          rarity: slot.crew.rarity,
+          trait: slot.trait,
+          traitMatch: slot.crew.traits.includes(slot.trait)
       })),
       aggregates: skill_aggregates
     };
@@ -181,16 +299,7 @@ export class LocalVoyageLog {
     return entry.duration <= estimate.maxResult;
   }
 
-  fetchAllVoyages(dbid: number = null) : VoyageEntry[] {
-    const { _voyageLog } = this;
-    return dbid ? _voyageLog.filter((entry) => dbid == entry.dbid) : _voyageLog.slice();
-  }
-
-  doSync() {
-    localForage.setItem(VOYAGER_LOG_KEY, {
-      voyages: this._voyageLog,
-      players: this._playerLog
-    });
-    return false; // No backend yet
+  store() {
+    voyageStore.store();
   }
 }
