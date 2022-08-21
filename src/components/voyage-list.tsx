@@ -9,6 +9,7 @@ import { VoyagerAvatar, VoyagerAvatarGroup } from './avatars';
 import { LocalVoyageLogContext } from './voyage-context';
 import { ColumnDef, durationFormatter, Formatter, SortableTable, SortableTableHeader, simpleSorter } from './sorrtabletable';
 import { CrewContext } from './crew';
+import { useVoyageLog } from './usevoyagelog';
    
 const baseColumns: ColumnDef[] = [
   ColumnDef.create({id: 'dateStarted', label: tr`Date`, numeric: false, sorter: (a: Date, b: Date) => a.getTime() - b.getTime(), formatter: value => value.toLocaleDateString()}), 

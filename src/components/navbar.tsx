@@ -88,7 +88,7 @@ type VoyageStatusDialogProps = {
 function VoyageStatusDialog(props: VoyageStatusDialogProps) {
   const messages = {
     parsedJson: [tr`Parsed player data.`, tr`Failed to parse player data`],
-    voyageFound: [tr`Found existing voyage.`, tr`No voyage found`],
+    voyageFound: [tr`Found running voyage.`, tr`No voyage found`],
     voyageComplete: [tr`Voyage has been recalled.`, tr`Recall the voyage before logging it`],
     voyageUnique: [tr`You have not yet logged the voyage.`, tr`You have already logged the voyage`],
     voyageNotExtended: [tr`The voyage has not been extended.`, tr`The voyage has been extended`],
@@ -186,7 +186,7 @@ export const NavBar = (props: NavBarProps) => {
 
   const logVoyageFromClipboard = (event) => {
     event.preventDefault();
-    logVoyage((event.clipboardData || window.clipboardData).getData('text'));
+    logVoyage(event.clipboardData.getData('text'));
   }
 
   const logVoyageFromFile = (e : ChangeEvent<HTMLInputElement>) => {

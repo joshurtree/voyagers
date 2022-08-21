@@ -1,5 +1,6 @@
 import React from 'react';
-import type { NextPage } from 'next'
+import type { NextPage } from 'next';
+import Image from 'next/image';
 import { Container } from '@mui/material';
 import styles from '/styles/Home.module.css';
 import tr from '../utils/translate';
@@ -13,7 +14,7 @@ const Home: NextPage = () => {
 
   return (
     <Container>
-        <img src='images/banner-1600x387.png' style={{display: 'block', marginLeft: 'auto', marginRight: 'auto', width: '100%'}} />
+        <Image src='images/banner-1600x387.png' alt={`These Are the Voyagers`} style={{display: 'block', marginLeft: 'auto', marginRight: 'auto', width: '100%'}} />
         <h1 style={{fontFamily: 'Star Trek', fontStyle: 'italic', fontWeight: 'bold', color: 'blue', fontSize: '36pt', textAlign: 'center'}}>{tr`These are the Voyagers`}</h1>
         {!showSummary &&
           <p>

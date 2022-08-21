@@ -36,11 +36,16 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
 
   setLanguage(locale);
   const [ logDirty, setLogDirty ] = React.useState(false);
-  const [ localVoyageLog, setLocalVoyageLog ] = React.useState(null);
-  React.useEffect(() => setLocalVoyageLog(new LocalVoyageLog(() => setLogDirty(!logDirty))), []);
   const [ crew, setCrew ] = React.useState([]);
-  
-  React.useEffect(() => loadCrew(c => setCrew(c)), []);
+  const localVoyageLog = new LocalVoyageLog(() => {
+    console.log("Log changed");
+    setLogDirty(!logDirty);
+  });
+    
+  React.useEffect(() => {
+    localVoyageLog.loadData();
+    loadCrew(c => setCrew(c));
+  }, []);
 
   return ( 
     <>
