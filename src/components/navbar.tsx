@@ -142,13 +142,6 @@ interface NavBarProps {
   onLocaleChange: (value: string) => void
 };
 
-type NavBarState = { 
-  dataClearConfirm: boolean;
-  loaded: boolean;
-  voyageImportStatus?: ImportTaskState[];
-  locale: Locale;
-};
-
 interface FileButtonProps {
   id: string;
   children: JSX.Element[];
