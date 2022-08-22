@@ -43,6 +43,8 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
     localVoyageLog.loadData();
     loadCrew(c => setCrew(c));
   }, [localVoyageLog]);
+  console.log(`No. of crew: ${crew.length} `);
+  console.log(`Voyage log is ${localVoyageLog.isLoaded() ? 'loaded' : 'loading'}`);
 
   return ( 
     <>
