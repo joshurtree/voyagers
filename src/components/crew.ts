@@ -3,10 +3,10 @@ import { Data } from 'dataclass';
 import fetch  from 'node-fetch';
 
 export const loadCrew  = (callback : (crew: Crew[]) => void) => {
-    console.log(process.env.WEBSITE_URL);
     fetch(`data/crew.json`)
         .then((response) => {
-            response.json().then((data) => callback(data.map(crew => Crew.create(crew))))
+            response.json().then((data) => callback(data.map(crew => Crew.create(crew))));
+            console.log(response);
         });
 }
 

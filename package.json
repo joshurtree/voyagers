@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && gulp",
     "start": "next start",
     "lint": "next lint",
     "tests": "cypress open"

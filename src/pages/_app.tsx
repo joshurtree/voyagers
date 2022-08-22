@@ -37,10 +37,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
   setLanguage(locale);
   const [ logDirty, setLogDirty ] = React.useState(false);
   const [ crew, setCrew ] = React.useState([]);
-  const localVoyageLog = React.useMemo(() => new LocalVoyageLog(() => {
-    console.log("Log changed");
-    setLogDirty(!logDirty);
-  }), []);
+  const localVoyageLog = React.useMemo(() => new LocalVoyageLog(() => setLogDirty(!logDirty)), []);
     
   React.useEffect(() => {
     localVoyageLog.loadData();
