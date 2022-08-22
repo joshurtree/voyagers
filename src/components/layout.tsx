@@ -36,7 +36,8 @@ export const Loading = () => (
   </Grid> 
 )
 export default function Layout(props:LayoutProps) {
-  const style = {}
+  console.log(props.loaded);
+  
   return (
     <div>
       <Navbar onLocaleChange={props.onLocaleChange} />
