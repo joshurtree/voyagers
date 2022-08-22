@@ -44,6 +44,7 @@ export default function App({ Component, pageProps }: AppPropsWithLayout) {
     loadCrew(c => setCrew(c));
   }, [localVoyageLog]);
 
+  console.log(crew.length);
   return ( 
     <>
       <Head>

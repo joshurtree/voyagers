@@ -4,10 +4,7 @@ import fetch  from 'node-fetch';
 
 export const loadCrew  = (callback : (crew: Crew[]) => void) => {
     fetch(`data/crew.json`)
-        .then((response) => {
-            response.json().then((data) => callback(data.map(crew => Crew.create(crew))));
-            console.log(response);
-        });
+        .then((response) => response.json().then((data) => callback(data.map(crew => Crew.create(crew)))));
 }
 
 export class Crew extends Data {

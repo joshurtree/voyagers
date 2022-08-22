@@ -28,7 +28,7 @@ export const Loading = () => (
           justifyContent='center'
         >
           <Grid item xs={3}>
-            <CircularProgress size='10%' />
+            <CircularProgress />
             <div>{tr`Loading assets...`}</div>
           </Grid>
       </Grid>
