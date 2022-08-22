@@ -37,7 +37,7 @@ export class ArrayQuery<T> implements OODBQuery<T> {
     }
 
     first(): T {
-        return this.baseArray[0];
+        return this.baseArray.length > 0 ? this.baseArray[0] : undefined;
     }
 
     group<Key>(groupFunc: GroupFunc<Key, T>): OODBQuery<[Key, OODBQuery<T>]> {
@@ -54,7 +54,7 @@ export class ArrayQuery<T> implements OODBQuery<T> {
     }
 
     last(): T {
-        return this.baseArray[this.baseArray.length - 1];
+        return this.baseArray.length > 0 ? this.baseArray[this.baseArray.length - 1] : undefined;
     }
 
     limit(count: number) : OODBQuery<T> {

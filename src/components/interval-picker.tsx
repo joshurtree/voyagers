@@ -14,7 +14,7 @@ interface Option {
 }
 
 const defaultOptions: Option[] = [
-  { label: tr`Any`, from: 'P100Y' },
+  { label: tr`Any`, from: 'P10Y' },
   { label: tr`Last week`, from: 'P7D' },
   { label: tr`Last month`, from: 'P1M' },
   { label: tr`Last 3 months`, from: 'P3M' },
@@ -24,6 +24,7 @@ const defaultOptions: Option[] = [
 ];
 
 class IntervalPickerProps  {
+  anyInterval?: string;
   defaultInterval?: Option = defaultOptions[0];
   onChange: (interval: Interval) => void;
   options?: Option[];

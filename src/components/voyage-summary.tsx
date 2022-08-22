@@ -2,12 +2,13 @@ import React from 'react';
 import { duration, Grid } from '@mui/material';
 import { LocalVoyageLog, VoyageEntry, VoyageFilter } from '../utils/voyagelog';
 import { tr } from '../utils';
-import { VoyagerAvatarGroup } from './avatars';
+import { VoyagerAvatarGroup } from './avatar';
 import { OODBQuery } from '../utils/QueryAdapter';
 import { Duration } from 'luxon';
 import LocalVoyageLogContext from './voyage-context';
 import { formatDuration } from '../utils';
 import { CrewContext, symbolToCrew } from './crew';
+import { longestVoyage, meanVoyageDuration, mostTravelledVoyagers, mostUsedVoyagers } from '../utils/queries';
 
 
 class ItemProps {
@@ -40,35 +41,25 @@ export const VoyagesSummary = (props: VoyagesSummaryProps) => {
         <Grid container justify-content='space-evenly' spacing={2}>
             <Item title={tr`Number of Voyages`}>{voyages.count()}</Item>
             <Item title={tr`Longest voyage`}>
-                {formatDuration(voyages.map(voyage => voyage.duration).sort(duration => duration, false).first())}
+                {formatDuration(longestVoyage(voyages))}
             </Item>
             <Item title={tr`Mean average voyage length`}>
-            {
-                formatDuration(voyages.map((voyage: VoyageEntry) => voyage.duration)
-                                  .reduce((total, value) => total + value, 0)/voyages.count())
-            }
+                {formatDuration(meanVoyageDuration(voyages))}
             </Item>
             <Item title={tr`Voyagers used`}>{voyagers.count()}</Item>
             <Item title={tr`Most used voyager(s)`}>
                 <VoyagerAvatarGroup 
                     voyagers= {
-                        voyagers
-                            .map<[string, number]> (([symbol, voyages]) => [symbol, voyages.count()])
-                            .sort(([symbol, voyageCount]) => voyageCount, true)
-                            .limit(12)
-                            .reduce((best, next) => best.length === 0 || best[0][1] == next[1] ? best.concat([next]) : best, [])
+                        mostUsedVoyagers(voyagers)
                             .map(val => symbolToCrew(val[0], allCrew))
                     }
                 />
             </Item>
             <Item title={tr`Most travelled voyager(s)`}>
                 <VoyagerAvatarGroup
-                    voyagers={voyagers
-                        .map<[string, number]>(([symbol, voyages]) => [symbol, voyages.map(voyage => voyage.duration).reduce((total, duration) => total + duration, 0)])
-                        .sort(([symbol, voyageDuration]) => voyageDuration, true)
-                        .limit(12)
-                        .reduce((best, next) => best.length === 0 || best[0][1] == next[1] ? best.concat([next]) : best, [])
-                        .map(val => symbolToCrew(val[0], allCrew))
+                    voyagers={
+                        mostTravelledVoyagers(voyagers)
+                            .map(val => symbolToCrew(val[0], allCrew))
                     }
                 />           
             </Item>

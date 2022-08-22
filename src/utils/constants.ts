@@ -9,7 +9,7 @@ export const SKILLS = {
   security_skill: 'Security'
 };
 
-export const SKILL_ABBRS = {
+export const skillAbbrieviations = {
   command_skill: 'CMD',
   diplomacy_skill: 'DIP',
   engineering_skill: 'ENG',
@@ -25,7 +25,7 @@ export enum VoyageState {
   completed = 'completed'
 };
 
-export const VOYAGE_SEATS = [
+export const voyageSeats = [
   {
     symbol: 'captain_slot',
     title: tr`First Officer`

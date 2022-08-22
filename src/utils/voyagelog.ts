@@ -1,12 +1,13 @@
 import { Data } from 'dataclass';
 import { createContext } from 'react';
 import localForage from 'localforage';
-import { VoyageState, VOYAGE_SEATS } from './constants';
+import { VoyageState, voyageSeats } from './constants';
 import { getEstimate } from './voyage-emulator';
-import { Password, SearchTwoTone, Upload } from '@mui/icons-material';
+import { LoopTwoTone, Password, SearchTwoTone, Upload } from '@mui/icons-material';
 import { resolve } from 'path';
 import { ArrayQuery, OODBQuery } from '../utils/QueryAdapter';
 import { duration } from '@mui/material';
+import sample from './sample.json';
 
 const VOYAGER_LOG_KEY = 'voyageLog';
 const SAVE_PATH_KEY = 'savePath';
@@ -44,7 +45,7 @@ export class VoyagerRecord extends Data {
 };
 
 export class VoyagerRecordEx extends VoyagerRecord {
-    duration: number;
+    voyage: VoyageEntry;
 };
 
 export type Item = {
@@ -60,7 +61,7 @@ type RawVoyage = {
     max_hp: number;
     hp: number;
     log_index: number;
-    pending_rewards: Item[];
+    pending_rewards: { loot: Item[] };
     created_at: string;
     recalled_at?: string;
     voyage_duration: number;
@@ -79,12 +80,13 @@ export type VoyageEntry = {
     startAm: number;
     finalAm: number;
     shipId: number;
-    shipTrait: string;
+    shipTrait?: string;
     primary_skill: string;
     secondary_skill: string;
     seats: VoyagerRecord[];
     aggregates: Skills;
-    loot: Item[];
+    loot?: Item[];
+    extended: boolean;
 };
 
 export type VoyageFilter = (value: VoyageEntry) => boolean;
@@ -149,14 +151,20 @@ const voyageStore = new class {
 
     importData(data: string) {
         const { players, voyages } = JSON.parse(data);
+        const preCount = this.voyages.length;
         this.players.concat(players);
         this.voyages.concat(voyages);
         this.store();
+        return this.voyages.length - preCount;
     }
 
     exportData(): Blob {
         const { players, voyages } = this;
-        return new Blob([JSON.stringify({ version: EXPORT_VERSION, players, voyages })], { type: 'text/json' });
+        return new Blob([JSON.stringify({ 
+            version: EXPORT_VERSION, 
+            players, 
+            voyages 
+        })], { type: 'text/json' });
     }
 
     clear(playerFilter: number[]) {
@@ -197,6 +205,16 @@ export class LocalVoyageLog {
             voyageStore.load();
     }
 
+    loadSampleData() {
+        voyageStore.players = sample.players;
+        voyageStore.voyages = sample.voyages.map(voyage => {
+            const dateStarted = new Date(voyage.dateStarted);
+            return { ...voyage, dateStarted, seats: voyage.seats.map(seat => VoyagerRecord.create(seat)) };
+        });
+    
+        voyageStore.notifyCallbacks();
+    }
+
     isLoaded() {
         return voyageStore.loaded;
     }
@@ -221,9 +239,8 @@ export class LocalVoyageLog {
                     return reject(status);
 
                 const entry = this._voyageToEntry(dbid, fleet.slabel, voyage);
-                if (!addState('voyageNotExtended', this._checkVoyageLength(entry)))
-                    return reject(status);
-
+                addState('voyageNotExtended', !entry.extended); 
+                
                 voyageStore.addVoyage(entry);
                 voyageStore.addPlayer({ id, dbid, currentPlayerName: character.display_name });
                 voyageStore.store();
@@ -238,7 +255,7 @@ export class LocalVoyageLog {
     }
 
     importData(data: string) {
-        voyageStore.importData(data);
+        return voyageStore.importData(data);
     }
 
     exportData(): Blob {
@@ -264,7 +281,7 @@ export class LocalVoyageLog {
 
     voyagerRecords(): OODBQuery<VoyagerRecordEx> {
         return new ArrayQuery(voyageStore.voyages.reduce(
-            (voyagers, voyage) => voyagers.concat(voyage.seats.map(seat => VoyagerRecordEx.create({ ...seat, duration: voyage.duration }))), []
+            (voyagers, voyage) => voyagers.concat(voyage.seats.map(seat => VoyagerRecordEx.create({ ...seat, voyage}))), []
         ));
     }
 
@@ -284,7 +301,7 @@ export class LocalVoyageLog {
         } = voyage;
 
         const { primary_skill, secondary_skill } = skills;
-        return {
+        const entry = {
             id,
             dateStarted: new Date(created_at),
             dbid,
@@ -294,11 +311,11 @@ export class LocalVoyageLog {
             finalAm: hp,
             shipId: ship_id,
             shipTrait: ship_trait,
-            loot: pending_rewards,
+            loot: pending_rewards.loot.map(({id, quantity}) => ({id, quantity})),
             primary_skill,
             secondary_skill,
             seats: crew_slots.map(slot => VoyagerRecord.create({
-                seatid: slot.id,
+                seatid: voyageSeats.findIndex((seat) => seat.symbol == slot.symbol),
                 voyagerid: slot.crew.id,
                 symbol: slot.crew.symbol,
                 skills: slot.crew.skills,
@@ -306,8 +323,11 @@ export class LocalVoyageLog {
                 trait: slot.trait,
                 traitMatch: slot.crew.traits.includes(slot.trait)
             })),
-            aggregates: skill_aggregates
+            aggregates: skill_aggregates,
+            extended: false
         };
+
+        return { ...entry, extended: !this._checkVoyageLength(entry) };
     }
 
     _checkVoyageLength(entry: VoyageEntry) {

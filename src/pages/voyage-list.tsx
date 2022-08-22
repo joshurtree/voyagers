@@ -5,16 +5,19 @@ import { VoyageFilter } from '../components/voyage-filter';
 import { VoyageList } from '../components/voyage-list';
 import { DateTime, Duration, Interval } from 'luxon';
 import LocalVoyageLogContext from '../components/voyage-context';
+import { oldestVoyage } from '../utils/queries';
 
 
 const Page : NextPage = () => {
   const [ playerFilter, setPlayerFilter ] = React.useState(undefined);
   const [ dateFilter, setDateFilter ] = React.useState(Interval.before(DateTime.now(), Duration.fromISO('P100Y')));
-
+  const voyageLog = React.useContext(LocalVoyageLogContext).voyageLog;
+ 
   const updateFilter = (dateFilter: Interval, playerFilter: number) => {
     setDateFilter(dateFilter);
     setPlayerFilter(playerFilter);
-  }
+  };
+
   const players = React.useContext(LocalVoyageLogContext).voyageLog?.players().toArray();
 
   return (

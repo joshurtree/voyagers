@@ -23,7 +23,7 @@ import tr from '../utils/translate';
 import { languages } from '../utils/constants';
 import { ImportTaskState, LocalVoyageLog } from '../utils/voyagelog';
 import { useTheme } from '@mui/material/styles';
-import ConfirmationDialog from './confirm-dialog';
+import SimpleDialog, { ConfirmationDialog } from './simple-dialog';
 import LocalVoyageLogContext from './voyage-context';
 
 type NavBarPopupProps = {
@@ -163,7 +163,7 @@ const FileButton = (props: FileButtonProps) => (
   </label>
 );
 
-export const NavBar = (props: NavBarProps) => {
+export const NavBar = (props: NavBarProps)  => {
   const voyageLog = React.useContext(LocalVoyageLogContext).voyageLog;
   let exportBlobURL: string = null;
   
@@ -183,22 +183,27 @@ export const NavBar = (props: NavBarProps) => {
   }
 
   const logVoyageFromFile = (e : ChangeEvent<HTMLInputElement>) => {
-    const file: File = e.target.files[0];
-    const fReader = new FileReader();
-    const isWebArchive = file.name.toLowerCase().endsWith('.webarchive');
-  
-		fReader.onload = (e) => {
-			const data = e.target.result.toString();
-      logVoyage(isWebArchive ? data.substring(data.indexOf('>{') + 1, data.lastIndexOf('}}') + 2) : data);
-		};
+    const files: FileList = e.target.files;
+    for (let i = 0; i < files.length; ++i) {
+      const file = files[i];
+      const fReader = new FileReader();
+      const isWebArchive = file.name.toLowerCase().endsWith('.webarchive');
+    
+      fReader.onload = (e) => {
+        const data = e.target.result.toString();
+        logVoyage(isWebArchive ? data.substring(data.indexOf('>{') + 1, data.lastIndexOf('}}') + 2) : data);
+      };
 
-		fReader.readAsText(file);
+      fReader.readAsText(file);
+    }
   }
 
   const importData = (e: ChangeEvent<HTMLInputElement>) => {
     const fReader = new FileReader();
-    fReader.onload = ev => voyageLog.importData(ev.target.result.toString());
-    fReader.readAsText(e.target.files[0]);
+    fReader.onload = ev => { 
+      voyageLog.importData(ev.target.result.toString());
+      fReader.readAsText(e.target.files[0]);
+    };
   }
 
   const exportData = () => {
@@ -291,7 +296,7 @@ export const NavBar = (props: NavBarProps) => {
         id='dataClearConfirm'
         open={dataClearConfirm} 
         onClose={handleConfirmClose} 
-        labels={ConfirmationDialog.YESNO} 
+        actions={SimpleDialog.YESNO} 
         title={tr`Are you sure?`}
       />
     </>

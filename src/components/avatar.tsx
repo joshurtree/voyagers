@@ -10,7 +10,7 @@ type VoyagerSummaryProps = {
 export const VoyagerAvatar = (props: VoyagerSummaryProps) => {
     const { square, voyager } = props;
 
-    return <Avatar alt={voyager.name} src={`/images/stt-assets/${voyager.iconUrl}`} variant={square ? 'square' : 'circular'}/>
+    return <Avatar alt={voyager?.name} src={`/images/stt-assets/${voyager?.iconUrl}`} variant={square ? 'square' : 'circular'}/>
 };
 
 type VoyagerAvatarGroupProps = {
@@ -20,7 +20,7 @@ type VoyagerAvatarGroupProps = {
 
 export const VoyagerAvatarGroup = (props: VoyagerAvatarGroupProps) => {
     const { max, voyagers } = props;
-
+    
     return <AvatarGroup max={max ?? 4}>
         {
             voyagers.map((c, i) => <VoyagerAvatar key={i.toString()} voyager={c} />)
