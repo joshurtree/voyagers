@@ -36,13 +36,11 @@ export const Loading = () => (
   </Grid> 
 )
 export default function Layout(props:LayoutProps) {
-  console.log(`Show ${props.loaded ? 'loading screen' : 'page'}`);
-  console.trace();
   return (
     <div>
       <Navbar onLocaleChange={props.onLocaleChange} />
       <main style={{fontFamily: props.klingon ? 'klingon' : 'inherit'}}>
-        {(props.loaded && props.children) || <Loading />}
+        {props.loaded ? props.children : <Loading />}
       </main>
     </div>
   )
