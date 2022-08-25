@@ -124,19 +124,13 @@ const voyageStore = new class {
         this.loading = true;
         new Promise((resolve, _) => {
             localForage.getItem<AllData>(VOYAGER_LOG_KEY).then((data) => {
-                console.log("p1");
+                console.log(data);
                 this.players = data.players.reduce(ensureUnique<PlayerEntry>("dbid"), []) ?? [];
-                console.log("p2");
                 this.voyages = data.voyages.reduce(ensureUnique<VoyageEntry>("id"), []) ?? [];
-                console.log("p3");
                 resolve(data);
-                console.log("p4");
             }).then(() => { 
-                console.log("t1");
                 this.loading = false;
-                console.log("t2");
                 this.loaded = true;
-                console.log("t2");
                 this.notifyCallbacks();
             }).catch((e) => {
                 console.error(e.toString());
