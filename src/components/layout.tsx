@@ -36,7 +36,7 @@ export const Loading = () => (
   </Grid> 
 )
 export default function Layout(props:LayoutProps) {
-  console.log(`Show ${props.loaded ? 'loading screen' : 'page'}`);
+  console.log(`Show ${props.loaded ?  'page' : 'loading screen'}`);
 
   return (
     <div>
