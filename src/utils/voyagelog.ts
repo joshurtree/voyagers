@@ -131,6 +131,8 @@ const voyageStore = new class {
                 this.loading = false;
                 this.loaded = true;
                 this.notifyCallbacks();
+            }).catch((e) => {
+                console.error(e.toString());
             });
         });
     }
