@@ -125,8 +125,8 @@ const voyageStore = new class {
         new Promise((resolve, _) => {
             localForage.getItem<AllData>(VOYAGER_LOG_KEY).then((data) => {
                 console.log(data);
-                this.players = data.players.reduce(ensureUnique<PlayerEntry>("dbid"), []) ?? [];
-                this.voyages = data.voyages.reduce(ensureUnique<VoyageEntry>("id"), []) ?? [];
+                this.players = data?.players.reduce(ensureUnique<PlayerEntry>("dbid"), []) ?? [];
+                this.voyages = data?.voyages.reduce(ensureUnique<VoyageEntry>("id"), []) ?? [];
                 resolve(data);
             }).then(() => { 
                 this.loading = false;
